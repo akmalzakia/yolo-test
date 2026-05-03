@@ -2,6 +2,7 @@
 """Block modules."""
 
 from __future__ import annotations
+from turtle import forward
 
 import torch
 import torch.nn as nn
@@ -9,7 +10,7 @@ import torch.nn.functional as F
 
 from ultralytics.utils.torch_utils import fuse_conv_and_bn
 
-from .conv import Conv, DWConv, GhostConv, LightConv, RepConv, autopad
+from .conv import CircleConv, Conv, DWConv, GhostConv, LightConv, RepConv, ShapeConv, TriangleConv, autopad
 from .transformer import TransformerBlock
 
 __all__ = (
@@ -2071,3 +2072,143 @@ class RealNVP(nn.Module):
             self.float()
         z, log_det = self.backward_p(x)
         return self.prior.log_prob(z) + log_det
+
+class SimAM(torch.nn.Module):
+    def __init__(self, channels = None, e_lambda = 1e-4):
+        super(SimAM, self).__init__()
+
+        self.activaton = nn.Sigmoid()
+        self.e_lambda = e_lambda
+
+    def __repr__(self):
+        s = self.__class__.__name__ + '('
+        s += ('lambda=%f)' % self.e_lambda)
+        return s
+
+    @staticmethod
+    def get_module_name():
+        return "simam"
+
+    def forward(self, x):
+
+        b, c, h, w = x.size()
+        
+        n = w * h - 1
+
+        x_minus_mu_square = (x - x.mean(dim=[2,3], keepdim=True)).pow(2)
+        y = x_minus_mu_square / (4 * (x_minus_mu_square.sum(dim=[2,3], keepdim=True) / n + self.e_lambda)) + 0.5
+
+        return x * self.activaton(y)
+
+class ShapeConv(nn.Module):
+
+    def __init__(self, c1, c2, k=3, s=1):
+        """Initialize Shape conv layer.
+
+        Args:
+            c1 (int): Number of input channels.
+            c2 (int): Number of output channels.
+            k (int): Kernel size.
+        """
+        super().__init__()
+
+        self.triangleconv = TriangleConv(c1, c2, 5)
+        self.circleconv = CircleConv(c1, c2, 5)
+
+        self.conv = nn.Conv2d(c1, c2, kernel_size=k, padding=1, stride=s)
+        self.bn1 = nn.BatchNorm2d(c2)
+        self.bn2 = nn.BatchNorm2d(c2)
+        self.bn3 = nn.BatchNorm2d(c2)
+
+        self.act1 = nn.SiLU()
+        self.act2 = nn.SiLU()
+        self.act3 = nn.SiLU()
+
+    def forward(self, x):
+        
+        x1 = self.act1(self.bn1(self.circleconv(x)))
+        x2 = self.act2(self.bn2(self.triangleconv(x)))
+        x3 = self.act3(self.bn3(self.conv(x)))
+
+        out = x1 + x2 + x3
+
+        return out
+        
+
+
+class EFE(nn.Module):
+    def __init__(self, c1, c2, k=3, s=1):
+        super().__init__()
+        self.conv = RepConv(c1, c2, k=k, s=s, act=True)
+        self.simam = SimAM()
+    
+    def forward(self, x):
+        out = self.simam(self.conv(x))
+        return out
+
+class EDPIC(nn.Module):
+    def __init__(self, c1):
+        super().__init__()
+        self.groups = c1
+        sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=torch.float32)
+        sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=torch.float32)
+
+        sobel_x = sobel_x.view(1, 1, 3, 3).repeat(c1, 1, 1, 1)
+        sobel_y = sobel_y.view(1, 1, 3, 3).repeat(c1, 1, 1, 1)
+
+        self.register_buffer('sobel_x', sobel_x)
+        self.register_buffer('sobel_y', sobel_y)
+
+    def forward(self, x):
+        s_x = torch.nn.functional.conv2d(x, self.sobel_x, padding=1, groups=self.groups)
+        s_y = torch.nn.functional.conv2d(x, self.sobel_y, padding=1, groups=self.groups)
+
+        out = torch.sqrt(s_x ** 2 + s_y ** 2 + 1e-6)
+        return out
+
+class AFFM(nn.Module):
+    def __init__(self, c1):
+        super().__init__()
+        self.c1 = c1
+
+        self.conv = nn.Conv2d(2 * c1, 2 * c1, kernel_size=1, stride=1, padding=0)
+        self.pool = nn.AdaptiveAvgPool2d(1)
+        self.fc = nn.Linear(2 * c1, 2 * c1)
+        self.bn = nn.BatchNorm2d(2 * c1)
+        self.act = nn.Sigmoid()
+
+    def forward(self, x: list[torch.Tensor]):
+
+        # [B, 2 * c, H, W]
+        _x = torch.cat((x[0], x[1]), dim=1)
+        # [B, 2 * c, H, W]
+        _x = self.pool(self.conv(_x))
+
+        # [B, 2* c]
+        _x = torch.flatten(_x, 1)
+        _x = self.fc(_x)
+
+        # [B, 2 * c, 1, 1]
+        _x = _x.unsqueeze(-1).unsqueeze(-1)
+        _x = self.act(self.bn(_x))
+
+        w1, w2 = torch.split(_x, self.c1, dim=1)
+        out = x[0] * w1 + x[1] * w2
+        return out
+
+class EdgeFEBlock(nn.Module):
+    def __init__(self, c1, c2, k=3, s=1):
+        super().__init__()
+
+        self.edpic = EDPIC(c1)
+        self.conv = nn.Conv2d(c1, c2, k, s)
+        self.shapeconv = ShapeConv(c1, c2, k, s)
+    
+    def forward(self, x):
+        x1 = self.conv(self.edpic(x))
+        x2 = self.shapeconv(x)
+
+        return [x1, x2]
+
+
+         

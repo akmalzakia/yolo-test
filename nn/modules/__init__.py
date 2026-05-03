@@ -59,6 +59,12 @@ from .block import (
     ResNetLayer,
     SCDown,
     TorchVision,
+    SimAM,
+    ShapeConv,
+    EFE,
+    EDPIC,
+    AFFM,
+    EdgeFEBlock
 )
 from .conv import (
     CBAM,
@@ -75,6 +81,8 @@ from .conv import (
     LightConv,
     RepConv,
     SpatialAttention,
+    CircleConv,
+    TriangleConv
 )
 from .head import (
     OBB,
@@ -187,4 +195,12 @@ __all__ = (
     "YOLOESegment",
     "YOLOESegment26",
     "v10Detect",
+    "SimAM",
+    "ShapeConv",
+    "EFE",
+    "EDPIC",
+    "AFFM",
+    "EdgeFEBlock",
+    "CircleConv",
+    "TriangleConv"
 )

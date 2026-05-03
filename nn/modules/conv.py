@@ -667,3 +667,77 @@ class Index(nn.Module):
             (torch.Tensor): Selected tensor.
         """
         return x[self.index]
+
+class CircleConv(nn.Module):
+    def __init__(self, c1, c2, k=5, s=1):
+        """Initialize Conv layer with circle weight.
+
+        Args:
+            c1 (int): Number of input channels.
+            c2 (int): Number of output channels.
+            k (int): Kernel size.
+            s (int): Stride.
+        """
+        self.k = k
+        self.s = s
+        self.p = k // 2
+
+        # Initialize circle weight based on pseudocode
+        # out: [k, k]
+        r = k // 2
+        center = (r, r)
+        mat = torch.zeros(k, k)
+        for i in range(k):
+            for j in range(k):
+                if (i - center[0]) ** 2 + (j - center[1]) ** 2 <= r**2:
+                    mat[i, j] = 1
+
+        # Convert to pytorch standard
+        # out (view): [1, 1, k, k] for a single computation
+        # out (repeat): [c1, c2, k, k] repeated for every input
+        weight = mat.view(1, 1, k, k).repeat(c1, c2, 1, 1)
+
+        self.register_buffer("weight", weight)
+
+    def forward(self, x): 
+        return torch.nn.functional.conv2d(x, self.weight, stride=self.s, padding=self.p)
+
+class TriangleConv(nn.Module):
+    def __init__(self, c1, c2, k=5, s=1):
+        """Initialize Conv layer with triangle weight.
+
+        Args:
+            c1 (int): Number of input channels.
+            c2 (int): Number of output channels.
+            k (int): Kernel size.
+            s (int): Stride.
+        """
+        self.k = k
+        self.s = s
+        self.p = k // 2
+
+        # Initialize triangle weight
+        # out: [k, k]
+        height = (k + 1) // 2 
+        start_row = (k - height) // 2
+        center_col = k // 2
+        mat = torch.zeros(k, k)
+        
+        for i in range(k):
+            if start_row <= i < start_row + height:
+                half_width = i - start_row
+                
+                for j in range(k):
+                    if center_col - half_width <= j <= center_col + half_width:
+                        mat[i, j] = 1
+
+
+        # Convert to pytorch standard
+        # out (view): [1, 1, k, k] for a single input
+        # out (repeat): [c1, c2, k, k] repeated for every input
+        weight = mat.view(1, 1, k, k).repeat(c1, c2, 1, 1)
+
+        self.register_buffer("weight", weight)
+
+    def forward(self, x): 
+        return torch.nn.functional.conv2d(x, self.weight, stride=self.s, padding=self.p)
