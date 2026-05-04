@@ -3,5 +3,6 @@
     "python-envs.defaultPackageManager": "ms-python.python:pip",
     "python.analysis.extraPaths": [
         "${workspaceFolder}/ultralytics"
-    ]
+    ],
+    "cmake.ignoreCMakeListsMissing": true
 }

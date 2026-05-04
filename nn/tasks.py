@@ -1618,10 +1618,8 @@ def parse_model(d, ch, verbose=True):
             TriangleConv,
             CircleConv,
             ShapeConv,
-            AFFM,
             EFE,
-            EdgeFEBlock,
-            SimAM
+            EdgeFEBlock
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1692,6 +1690,10 @@ def parse_model(d, ch, verbose=True):
             args = [ch[f]]
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
+        elif m is AFFM:
+            c1 = sum(int(ch[x]) for x in f)
+            c2 = int(c1 / 2)
+            args = [c1]
         elif m in frozenset(
             {
                 Detect,

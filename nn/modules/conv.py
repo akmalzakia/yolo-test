@@ -24,6 +24,8 @@ __all__ = (
     "LightConv",
     "RepConv",
     "SpatialAttention",
+    "CircleConv",
+    "TriangleConv"
 )
 
 
@@ -678,6 +680,9 @@ class CircleConv(nn.Module):
             k (int): Kernel size.
             s (int): Stride.
         """
+        super().__init__()
+        self.c1 = c1
+        self.c2 = c2
         self.k = k
         self.s = s
         self.p = k // 2
@@ -694,8 +699,8 @@ class CircleConv(nn.Module):
 
         # Convert to pytorch standard
         # out (view): [1, 1, k, k] for a single computation
-        # out (repeat): [c1, c2, k, k] repeated for every input
-        weight = mat.view(1, 1, k, k).repeat(c1, c2, 1, 1)
+        # out (repeat): [c2, c1, k, k] repeated for every input
+        weight = mat.view(1, 1, k, k).repeat(c2, c1, 1, 1)
 
         self.register_buffer("weight", weight)
 
@@ -712,6 +717,9 @@ class TriangleConv(nn.Module):
             k (int): Kernel size.
             s (int): Stride.
         """
+        super().__init__()
+        self.c1 = c1
+        self.c2 = c2
         self.k = k
         self.s = s
         self.p = k // 2
@@ -734,8 +742,8 @@ class TriangleConv(nn.Module):
 
         # Convert to pytorch standard
         # out (view): [1, 1, k, k] for a single input
-        # out (repeat): [c1, c2, k, k] repeated for every input
-        weight = mat.view(1, 1, k, k).repeat(c1, c2, 1, 1)
+        # out (repeat): [c2, c1, k, k] repeated for every input
+        weight = mat.view(1, 1, k, k).repeat(c2, c1, 1, 1)
 
         self.register_buffer("weight", weight)
 
