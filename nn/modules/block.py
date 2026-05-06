@@ -2166,13 +2166,14 @@ class EDPIC(nn.Module):
         self.register_buffer('sobel_y', sobel_y)
 
     def forward(self, x):
-        x_fp32 = x.float()
+        s_x = torch.nn.functional.conv2d(x, self.sobel_x.to(x.dtype), padding="same", groups=self.groups)
+        s_y = torch.nn.functional.conv2d(x, self.sobel_y.to(x.dtype), padding="same", groups=self.groups)
 
-        s_x = torch.nn.functional.conv2d(x_fp32, self.sobel_x, padding="same", groups=self.groups)
-        s_y = torch.nn.functional.conv2d(x_fp32, self.sobel_y, padding="same", groups=self.groups)
+        s_x_fp32 = s_x.float()
+        s_y_fp32 = s_y.float()
 
-        out = torch.sqrt(s_x ** 2 + s_y ** 2 + 1e-6)
-        return out
+        out = torch.sqrt(s_x_fp32 ** 2 + s_y_fp32 ** 2 + 1e-6)
+        return out.to(x.dtype)
 
 class AFFM(nn.Module):
     def __init__(self, c1):
