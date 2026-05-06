@@ -2166,8 +2166,10 @@ class EDPIC(nn.Module):
         self.register_buffer('sobel_y', sobel_y)
 
     def forward(self, x):
-        s_x = torch.nn.functional.conv2d(x, self.sobel_x, padding="same", groups=self.groups)
-        s_y = torch.nn.functional.conv2d(x, self.sobel_y, padding="same", groups=self.groups)
+        x_fp32 = x.float()
+
+        s_x = torch.nn.functional.conv2d(x_fp32, self.sobel_x, padding="same", groups=self.groups)
+        s_y = torch.nn.functional.conv2d(x_fp32, self.sobel_y, padding="same", groups=self.groups)
 
         out = torch.sqrt(s_x ** 2 + s_y ** 2 + 1e-6)
         return out

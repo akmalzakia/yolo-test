@@ -687,6 +687,8 @@ class CircleConv(nn.Module):
         self.s = s
         self.p = k // 2
 
+        self.conv = nn.Conv2d(c1, c2, k, s, padding=k//2)
+
         # Initialize circle weight based on pseudocode
         # out: [k, k]
         r = k // 2
@@ -695,17 +697,13 @@ class CircleConv(nn.Module):
         for i in range(k):
             for j in range(k):
                 if (i - center[0]) ** 2 + (j - center[1]) ** 2 <= r**2:
-                    mat[i, j] = 1
+                    mat[i, j] = 1.0
 
-        # Convert to pytorch standard
-        # out (view): [1, 1, k, k] for a single computation
-        # out (repeat): [c2, c1, k, k] repeated for every input
-        weight = mat.view(1, 1, k, k).repeat(c2, c1, 1, 1)
+        self.register_buffer("mask", mat.view(1, 1, k, k))
 
-        self.register_buffer("weight", weight)
-
-    def forward(self, x): 
-        return torch.nn.functional.conv2d(x, self.weight, stride=self.s, padding=self.p)
+    def forward(self, x):
+        weight = self.conv.weight * self.mask
+        return torch.nn.functional.conv2d(x, weight, stride=self.s, padding=self.p)
 
 class TriangleConv(nn.Module):
     def __init__(self, c1, c2, k=5, s=1):
@@ -724,6 +722,8 @@ class TriangleConv(nn.Module):
         self.s = s
         self.p = k // 2
 
+        self.conv = nn.Conv2d(c1, c2, k, s, padding=k//2)
+
         # Initialize triangle weight
         # out: [k, k]
         height = (k + 1) // 2 
@@ -737,15 +737,11 @@ class TriangleConv(nn.Module):
                 
                 for j in range(k):
                     if center_col - half_width <= j <= center_col + half_width:
-                        mat[i, j] = 1
+                        mat[i, j] = 1.0
 
 
-        # Convert to pytorch standard
-        # out (view): [1, 1, k, k] for a single input
-        # out (repeat): [c2, c1, k, k] repeated for every input
-        weight = mat.view(1, 1, k, k).repeat(c2, c1, 1, 1)
+        self.register_buffer("mask", mat.view(1, 1, k, k))
 
-        self.register_buffer("weight", weight)
-
-    def forward(self, x): 
-        return torch.nn.functional.conv2d(x, self.weight, stride=self.s, padding=self.p)
+    def forward(self, x):
+        weight = self.conv.weight * self.mask
+        return torch.nn.functional.conv2d(x, weight, stride=self.s, padding=self.p)
