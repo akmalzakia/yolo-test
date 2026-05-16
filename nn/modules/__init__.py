@@ -64,7 +64,8 @@ from .block import (
     EFE,
     EDPIC,
     AFFM,
-    EdgeFEBlock
+    EdgeFEBlock,
+    DySample
 )
 from .conv import (
     CBAM,
@@ -202,5 +203,6 @@ __all__ = (
     "AFFM",
     "EdgeFEBlock",
     "CircleConv",
-    "TriangleConv"
+    "TriangleConv",
+    "DySample"
 )

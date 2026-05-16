@@ -78,7 +78,8 @@ from ultralytics.nn.modules import (
     ShapeConv, 
     SimAM,
     CircleConv, 
-    TriangleConv
+    TriangleConv,
+    DySample
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1693,6 +1694,10 @@ def parse_model(d, ch, verbose=True):
         elif m is AFFM:
             c1 = sum(int(ch[x]) for x in f)
             c2 = int(c1 / 2)
+            args = [c1]
+        elif m is DySample:
+            c1 = ch[f]
+            c2 = ch[f]
             args = [c1]
         elif m in frozenset(
             {
