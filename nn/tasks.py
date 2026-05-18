@@ -81,6 +81,7 @@ from ultralytics.nn.modules import (
     CircleConv,
     TriangleConv,
     DySample,
+    CBAM
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1939,6 +1940,10 @@ def parse_model(d, ch, verbose=True):
             c2 = args[0]
             c1 = ch[f]
             args = [*args[1:]]
+        elif m is CBAM:
+            c1 = ch[f]
+            c2 = ch[f]
+            args = [c1, *args[1:]]
         else:
             c2 = ch[f]
 
