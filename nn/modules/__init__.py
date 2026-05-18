@@ -38,6 +38,7 @@ from .block import (
     Bottleneck,
     BottleneckCSP,
     C2f,
+    C2f_EMA,
     C2fAttn,
     C2fCIB,
     C2fPSA,
@@ -65,7 +66,7 @@ from .block import (
     EDPIC,
     AFFM,
     EdgeFEBlock,
-    DySample
+    DySample,
 )
 from .conv import (
     CBAM,
@@ -83,7 +84,8 @@ from .conv import (
     RepConv,
     SpatialAttention,
     CircleConv,
-    TriangleConv
+    TriangleConv,
+    EMA,
 )
 from .head import (
     OBB,
@@ -204,5 +206,7 @@ __all__ = (
     "EdgeFEBlock",
     "CircleConv",
     "TriangleConv",
-    "DySample"
+    "DySample",
+    "EMA",
+    "C2f_EMA",
 )
