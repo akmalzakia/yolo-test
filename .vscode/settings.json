@@ -1,8 +1,9 @@
 {
-    "python-envs.defaultEnvManager": "ms-python.python:venv",
-    "python-envs.defaultPackageManager": "ms-python.python:pip",
+    "python-envs.defaultEnvManager": "ms-python.python:conda",
+    "python-envs.defaultPackageManager": "ms-python.python:conda",
     "python.analysis.extraPaths": [
-        "${workspaceFolder}/ultralytics"
+        "${workspaceFolder}/ultralytics",
+        "../ultralytics"
     ],
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
 }
