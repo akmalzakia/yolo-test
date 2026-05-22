@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from ltralytics.utils.loss_logger import read_loss_config
 from ultralytics.utils.metrics import OKS_SIGMA, RLE_WEIGHT
 from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
 from ultralytics.utils.tal import RotatedTaskAlignedAssigner, TaskAlignedAssigner, dist2bbox, dist2rbox, make_anchors
@@ -116,7 +117,7 @@ class IouLoss(nn.Module):
     alpha = 1.7
     delta = 2.7
 
-    def __init__(self, ltype='WIoU', monotonous=False):
+    def __init__(self, ltype='WiseInnerMPDIoU', monotonous=False):
         super().__init__()
         assert getattr(self, f'_{ltype}', None), f'The loss function {ltype} does not exist'
         self.ltype = ltype
@@ -130,15 +131,20 @@ class IouLoss(nn.Module):
 
     def forward(self, pred, target, ret_iou=False, **kwargs):
         self._fget = {
+            #raw boxes
             # pred, target: x0,y0,x1,y1
             'pred': pred,
             'target': target,
+
+            # centers and sizes
             # x,y,w,h
             'pred_xy': lambda: (self['pred'][..., :2] + self['pred'][..., 2: 4]) / 2,
             'pred_wh': lambda: self['pred'][..., 2: 4] - self['pred'][..., :2],
             'target_xy': lambda: (self['target'][..., :2] + self['target'][..., 2: 4]) / 2,
             'target_wh': lambda: self['target'][..., 2: 4] - self['target'][..., :2],
-            # x0,y0,x1,y1
+
+            # enclosing / overlap helpers
+            # x0,y0,x1,y1 
             'min_coord': lambda: torch.minimum(self['pred'][..., :4], self['target'][..., :4]),
             'max_coord': lambda: torch.maximum(self['pred'][..., :4], self['target'][..., :4]),
             # The overlapping region
@@ -147,15 +153,27 @@ class IouLoss(nn.Module):
             # The area covered
             's_union': lambda: torch.prod(self['pred_wh'], dim=-1) +
                                torch.prod(self['target_wh'], dim=-1) - self['s_inter'],
+
             # The smallest enclosing box
             'wh_box': lambda: self['max_coord'][..., 2: 4] - self['min_coord'][..., :2],
             's_box': lambda: torch.prod(self['wh_box'], dim=-1),
             'l2_box': lambda: torch.square(self['wh_box']).sum(dim=-1),
+
             # The central points' connection of the bounding boxes
             'd_center': lambda: self['pred_xy'] - self['target_xy'],
             'l2_center': lambda: torch.square(self['d_center']).sum(dim=-1),
+
             # IoU
-            'iou': lambda: 1 - self['s_inter'] / self['s_union']
+            'iou': lambda: 1 - self['s_inter'] / self['s_union'],
+
+            # Inner-IoU: IoU on centre-scaled boxes
+            # Shrinks both boxes by inner_ratio around their centres,
+            # then computes standard IoU on the resulting inner boxes.
+            'iou_inner': lambda: self._compute_inner_iou(),
+
+            # MPDIoU corner-point penalty
+            # d1²/(w²+h²) + d2²/(w²+h²)  — normalised by pred box diagonal
+            'mpd': lambda: self._compute_mpd(),
         }
 
         if self.training:
@@ -176,6 +194,40 @@ class IouLoss(nn.Module):
                 divisor = self.delta * torch.pow(self.alpha, beta - self.delta)
                 loss *= beta / divisor
         return loss
+    
+    def _compute_inner_iou(self) -> torch.Tensor:
+        r = self.inner_ratio / 2
+        # Shrink prediction box
+        p_hw = self['pred_wh']   * r
+        t_hw = self['target_wh'] * r
+        p_cx, p_cy = self['pred_xy'][..., 0],   self['pred_xy'][..., 1]
+        t_cx, t_cy = self['target_xy'][..., 0], self['target_xy'][..., 1]
+
+        # Inner box coordinates
+        pi = torch.stack([p_cx - p_hw[..., 0], p_cy - p_hw[..., 1],
+                          p_cx + p_hw[..., 0], p_cy + p_hw[..., 1]], dim=-1)
+        ti = torch.stack([t_cx - t_hw[..., 0], t_cy - t_hw[..., 1],
+                          t_cx + t_hw[..., 0], t_cy + t_hw[..., 1]], dim=-1)
+
+        ix1 = torch.max(pi[..., 0], ti[..., 0])
+        iy1 = torch.max(pi[..., 1], ti[..., 1])
+        ix2 = torch.min(pi[..., 2], ti[..., 2])
+        iy2 = torch.min(pi[..., 3], ti[..., 3])
+        inter = torch.relu(ix2 - ix1) * torch.relu(iy2 - iy1)
+
+        p_area = (pi[..., 2] - pi[..., 0]) * (pi[..., 3] - pi[..., 1])
+        t_area = (ti[..., 2] - ti[..., 0]) * (ti[..., 3] - ti[..., 1])
+        union  = p_area + t_area - inter + 1e-7
+        return 1 - inter / union   # returned as a loss (1 - iou_inner)
+    
+    def _compute_mpd(self) -> torch.Tensor:
+        denom = (self['pred_wh'][..., 0] ** 2
+               + self['pred_wh'][..., 1] ** 2 + 1e-7)
+        d1 = ((self['pred'][..., 0] - self['target'][..., 0]) ** 2
+            + (self['pred'][..., 1] - self['target'][..., 1]) ** 2)
+        d2 = ((self['pred'][..., 2] - self['target'][..., 2]) ** 2
+            + (self['pred'][..., 3] - self['target'][..., 3]) ** 2)
+        return d1 / denom + d2 / denom
 
     def _IoU(self):
         return self['iou']
@@ -217,8 +269,17 @@ class IouLoss(nn.Module):
         shape = w_shape ** theta + h_shape ** theta
         return self['iou'] + (dist + shape) / 2
 
+    def _InnerIoU(self):
+        return self['iou_inner']
+    
+    def _WiseInnerMPDIoU(self):
+        return self['mpd'] + self['iou_inner']
+
+
     def __repr__(self):
-        return f'{self.__name__}(iou_mean={self.iou_mean.item():.3f})'
+        return (f'{self.ltype}(monotonous={self.monotonous}, '
+                f'inner_ratio={self.inner_ratio}, '
+                f'iou_mean={self.iou_mean.item():.3f})')
 
     __name__ = property(lambda self: self.ltype)
 
@@ -228,7 +289,7 @@ class BboxLoss(nn.Module):
     def __init__(self, reg_max: int = 16):
         """Initialize the BboxLoss module with regularization maximum and DFL settings."""
         super().__init__()
-        self.wiou_loss = IouLoss(ltype='WIoU', monotonous=False)
+        self.iou_loss = IouLoss(**read_loss_config)
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
 
     def forward(
@@ -245,15 +306,10 @@ class BboxLoss(nn.Module):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute IoU and DFL losses for bounding boxes."""
 
-        use_wiou = os.environ.get('USE_WIOU', '0') == '1'
-
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
-        if use_wiou:
-            wiou = self.wiou_loss(pred_bboxes[fg_mask], target_bboxes[fg_mask])
-            loss_iou = (wiou * weight).sum() / target_scores_sum
-        else:
-            iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)
-            loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum
+        loss_iou_val, iou = self.iouloss(pred_bboxes[fg_mask], target_bboxes[fg_mask], ret_iou=True)
+        iou = 1 - iou
+        loss_iou = (loss_iou_val * weight).sum() / target_scores_sum
 
         # DFL loss
         if self.dfl_loss:
