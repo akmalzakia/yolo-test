@@ -137,13 +137,14 @@ class IouLoss(nn.Module):
     alpha = 1.7
     delta = 2.7
 
-    def __init__(self, ltype="WiseInnerMPDIoU", monotonous=False):
+    def __init__(self, ltype="WiseInnerMPDIoU", monotonous=False, inner_ratio: float = 0.7):
         super().__init__()
         assert getattr(self, f"_{ltype}", None), (
             f"The loss function {ltype} does not exist"
         )
         self.ltype = ltype
         self.monotonous = monotonous
+        self.inner_ratio = inner_ratio
         self.register_buffer("iou_mean", torch.tensor(1.0))
 
     def __getitem__(self, item):
@@ -344,7 +345,7 @@ class BboxLoss(nn.Module):
     def __init__(self, reg_max: int = 16):
         """Initialize the BboxLoss module with regularization maximum and DFL settings."""
         super().__init__()
-        self.iou_loss = IouLoss(**read_loss_config)
+        self.iou_loss = IouLoss(**read_loss_config())
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None
 
     def forward(
@@ -362,7 +363,7 @@ class BboxLoss(nn.Module):
         """Compute IoU and DFL losses for bounding boxes."""
 
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
-        loss_iou_val, iou = self.iouloss(
+        loss_iou_val, iou = self.iou_loss(
             pred_bboxes[fg_mask], target_bboxes[fg_mask], ret_iou=True
         )
         iou = 1 - iou
