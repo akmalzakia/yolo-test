@@ -262,14 +262,14 @@ class IouLoss(nn.Module):
         return 1 - inter / union  # returned as a loss (1 - iou_inner)
 
     def _compute_mpd(self) -> torch.Tensor:
-        denom = self["pred_wh"][..., 0] ** 2 + self["pred_wh"][..., 1] ** 2 + 1e-7
         d1 = (self["pred"][..., 0] - self["target"][..., 0]) ** 2 + (
             self["pred"][..., 1] - self["target"][..., 1]
         ) ** 2
         d2 = (self["pred"][..., 2] - self["target"][..., 2]) ** 2 + (
             self["pred"][..., 3] - self["target"][..., 3]
         ) ** 2
-        return d1 / denom + d2 / denom
+        c2 = self['l2_box'] + 1e-7
+        return d1 / c2 + d2 / c2
 
     def _IoU(self):
         return self["iou"]
@@ -367,7 +367,7 @@ class BboxLoss(nn.Module):
             pred_bboxes[fg_mask], target_bboxes[fg_mask], ret_iou=True
         )
         iou = 1 - iou
-        loss_iou = (loss_iou_val * weight).sum() / target_scores_sum
+        loss_iou = (loss_iou_val.unsqueeze(-1) * weight).sum() / target_scores_sum
 
         # DFL loss
         if self.dfl_loss:
