@@ -67,6 +67,7 @@ from .block import (
     AFFM,
     EdgeFEBlock,
     DySample,
+    BiFPNAdd
 )
 from .conv import (
     CBAM,

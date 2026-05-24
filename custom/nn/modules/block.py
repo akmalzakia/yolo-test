@@ -70,6 +70,7 @@ __all__ = (
     "EdgeFEBlock",
     "DySample",
     "C2f_EMA",
+    "BiFPNAdd"
 )
 
 
@@ -2647,3 +2648,17 @@ class EdgeFEBlock(nn.Module):
         x2 = self.shapeconv(x)
 
         return [x1, x2]
+
+class BiFPNAdd(nn.Module):
+    """Weighted feature fusion node (fast normalized fusion from BiFPN paper)."""
+
+    def __init__(self, num_inputs: int, eps: float = 1e-4):
+        super().__init__()
+        # Learnable per-input weights, initialized equally
+        self.weights = nn.Parameter(torch.ones(num_inputs, dtype=torch.float32))
+        self.eps = eps
+
+    def forward(self, inputs: list[torch.Tensor]) -> torch.Tensor:
+        w = F.relu(self.weights.clone())
+        w = w / (w.sum() + self.eps)
+        return sum(w[i] * inputs[i] for i in range(len(inputs)))
