@@ -82,7 +82,8 @@ from ultralytics.nn.modules import (
     TriangleConv,
     DySample,
     CBAM,
-    BiFPNAdd
+    BiFPNAdd,
+    WeightedConcatN
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1885,6 +1886,8 @@ def parse_model(d, ch, verbose=True):
             c1 = sum(int(ch[x]) for x in f)
             c2 = int(c1 / 2)
             args = [c1]
+        elif m is WeightedConcatN:
+            c2 = sum(ch[x] for x in f)
         elif m is BiFPNAdd:
             c2 = ch[f[0]]
         elif m is DySample:

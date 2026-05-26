@@ -848,3 +848,21 @@ class EMA(nn.Module):
             b * self.groups, 1, h, w
         )
         return (group_x * weights.sigmoid()).reshape(b, c, h, w)
+
+class WeightedConcatN(nn.Module):
+    def __init__(self, num_inputs, dimension=1):
+        super(WeightedConcatN, self).__init__()
+        self.d = dimension
+        self.num_inputs = num_inputs
+        self.w = nn.Parameter(torch.ones(num_inputs, dtype=torch.float32), requires_grad=True)
+        self.epsilon = 1e-4
+
+    def forward(self, x):
+        assert isinstance(x, (list, tuple)), "Input must be a list or tuple of tensors"
+        assert len(x) == self.num_inputs, f"Expected {self.num_inputs} inputs, got {len(x)}"
+
+        w = torch.exp(self.w)
+        weight = w / (torch.sum(w, dim=0) + self.epsilon)  # Normalize weights
+        # Fast normalized fusion
+        weighted = [weight[i] * x[i] for i in range(self.num_inputs)]  # Apply weights
+        return torch.cat(weighted, dim=self.d)

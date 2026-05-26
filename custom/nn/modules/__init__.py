@@ -87,6 +87,7 @@ from .conv import (
     CircleConv,
     TriangleConv,
     EMA,
+    WeightedConcatN
 )
 from .head import (
     OBB,
@@ -210,4 +211,6 @@ __all__ = (
     "DySample",
     "EMA",
     "C2f_EMA",
+    "WeightedConcatN"
+    "BiFPNAdd"
 )

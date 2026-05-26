@@ -6,4 +6,6 @@
         "../ultralytics"
     ],
     "cmake.ignoreCMakeListsMissing": true,
+    "debugpy.debugJustMyCode": false,
+    "jupyter.debugJustMyCode": false
 }
