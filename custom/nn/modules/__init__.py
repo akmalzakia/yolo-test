@@ -211,6 +211,6 @@ __all__ = (
     "DySample",
     "EMA",
     "C2f_EMA",
-    "WeightedConcatN"
-    "BiFPNAdd"
+    "WeightedConcatN",
+    "BiFPNAdd",
 )

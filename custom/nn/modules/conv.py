@@ -717,10 +717,9 @@ class Index(nn.Module):
             (torch.Tensor): Selected tensor.
         """
         return x[self.index]
-
-
+    
 class CircleConv(nn.Module):
-    def __init__(self, c1, c2, k=5, s=1):
+    def __init__(self, c1, c2, k=5, s=1, freeze=True):
         """Initialize Conv layer with circle weight.
 
         Args:
@@ -751,14 +750,17 @@ class CircleConv(nn.Module):
         # out (repeat): [c2, c1, k, k] repeated for every input
         weight = mat.view(1, 1, k, k).repeat(c2, c1, 1, 1)
 
-        self.register_buffer("weight", weight)
+        if freeze:
+            self.register_buffer('weight', weight)
+        else:
+            self.weight = nn.Parameter(weight)
 
     def forward(self, x):
-        return torch.nn.functional.conv2d(x, self.weight, stride=self.s, padding=self.p)
+        return torch.nn.functional.conv2d(x, self.weight, stride=self.s, padding=self.p, )
 
 
 class TriangleConv(nn.Module):
-    def __init__(self, c1, c2, k=5, s=1):
+    def __init__(self, c1, c2, k=5, s=1, freeze=True):
         """Initialize Conv layer with triangle weight.
 
         Args:
@@ -794,7 +796,10 @@ class TriangleConv(nn.Module):
         # out (repeat): [c2, c1, k, k] repeated for every input
         weight = mat.view(1, 1, k, k).repeat(c2, c1, 1, 1)
 
-        self.register_buffer("weight", weight)
+        if freeze:
+            self.register_buffer('weight', weight)
+        else:
+            self.weight = nn.Parameter(weight)
 
     def forward(self, x):
         return torch.nn.functional.conv2d(x, self.weight, stride=self.s, padding=self.p)

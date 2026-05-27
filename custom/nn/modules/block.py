@@ -2388,16 +2388,17 @@ class RealNVP(nn.Module):
         return self.prior.log_prob(z) + log_det
 
 
+
 class SimAM(torch.nn.Module):
-    def __init__(self, channels=None, e_lambda=1e-4):
+    def __init__(self, channels = None, e_lambda = 1e-4):
         super(SimAM, self).__init__()
 
         self.activaton = nn.Sigmoid()
         self.e_lambda = e_lambda
 
     def __repr__(self):
-        s = self.__class__.__name__ + "("
-        s += "lambda=%f)" % self.e_lambda
+        s = self.__class__.__name__ + '('
+        s += ('lambda=%f)' % self.e_lambda)
         return s
 
     @staticmethod
@@ -2405,19 +2406,19 @@ class SimAM(torch.nn.Module):
         return "simam"
 
     def forward(self, x):
-        x_fp32 = x.float()
 
-        var = x_fp32.var(dim=[2, 3], keepdim=True, unbiased=False)
-        mu = x_fp32.mean(dim=[2, 3], keepdim=True)
+        b, c, h, w = x.size()
+        
+        n = w * h - 1
 
-        x_minus_mu_square = (x_fp32 - mu).pow(2)
-        y = x_minus_mu_square / (4 * (var + self.e_lambda)) + 0.5
+        x_minus_mu_square = (x - x.mean(dim=[2,3], keepdim=True)).pow(2)
+        y = x_minus_mu_square / (4 * (x_minus_mu_square.sum(dim=[2,3], keepdim=True) / n + self.e_lambda)) + 0.5
 
-        return x * self.activaton(y.to(x.dtype))
+        return x * self.activaton(y)
 
 
 class ShapeConv(nn.Module):
-    def __init__(self, c1, c2, k=3, s=1):
+    def __init__(self, c1, c2, k=3, s=1, freeze=True):
         """Initialize Shape conv layer.
 
         Args:
@@ -2427,13 +2428,14 @@ class ShapeConv(nn.Module):
         """
         super().__init__()
 
-        self.triangleconv = TriangleConv(c1, c2, 5, s=s)
-        self.circleconv = CircleConv(c1, c2, 5, s=s)
+        self.triangleconv = TriangleConv(c1, c2, 5, s=s, freeze=freeze)
+        self.circleconv = CircleConv(c1, c2, 5, s=s, freeze=freeze)
 
         self.conv = nn.Conv2d(c1, c2, kernel_size=k, padding=1, stride=s)
         self.bn1 = nn.BatchNorm2d(c2)
         self.bn2 = nn.BatchNorm2d(c2)
         self.bn3 = nn.BatchNorm2d(c2)
+        self.ffm = BiFPNAdd(3)
 
         self.act1 = nn.SiLU()
         self.act2 = nn.SiLU()
@@ -2444,8 +2446,7 @@ class ShapeConv(nn.Module):
         x1 = self.act1(self.bn1(self.circleconv(x)))
         x2 = self.act2(self.bn2(self.triangleconv(x)))
         x3 = self.act3(self.bn3(self.conv(x)))
-
-        out = x1 + x2 + x3
+        out = self.ffm([x1, x2, x3])
 
         return out
 
@@ -2636,17 +2637,16 @@ class AFFM(nn.Module):
 
 
 class EdgeFEBlock(nn.Module):
-    def __init__(self, c1, c2, k=3, s=1):
+    def __init__(self, c1, c2, k=3, s=1, p=1):
         super().__init__()
 
         self.edpic = EDPIC(c1)
-        self.conv = Conv(c1, c2, k, s, p=1)
-        self.shapeconv = ShapeConv(c1, c2, k, s)
+        self.conv = Conv(c1, c2, k, s, p)
+        self.shapeconv = ShapeConv(c1, c2, k, s, freeze=True)
 
     def forward(self, x):
         x1 = self.conv(self.edpic(x))
         x2 = self.shapeconv(x)
-
         return [x1, x2]
 
 
