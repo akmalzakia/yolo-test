@@ -70,7 +70,7 @@ __all__ = (
     "EdgeFEBlock",
     "DySample",
     "C2f_EMA",
-    "BiFPNAdd"
+    "BiFPNAdd",
 )
 
 
@@ -2407,7 +2407,7 @@ class SimAM(torch.nn.Module):
     def forward(self, x):
         x_fp32 = x.float()
 
-        var = x_fp32.var(dim=[2, 3], keepdim=True, unbiased=True)
+        var = x_fp32.var(dim=[2, 3], keepdim=True, unbiased=False)
         mu = x_fp32.mean(dim=[2, 3], keepdim=True)
 
         x_minus_mu_square = (x_fp32 - mu).pow(2)
@@ -2611,7 +2611,7 @@ class AFFM(nn.Module):
         self.conv = nn.Conv2d(c1, c1, kernel_size=1, stride=1, padding=0)
         self.pool = nn.AdaptiveAvgPool2d(1)
         self.fc = nn.Linear(c1, c1)
-        self.bn = nn.BatchNorm2d(c1)
+        self.bn = nn.BatchNorm1d(c1)
         self.act = nn.Sigmoid()
 
     def forward(self, x: list[torch.Tensor]):
@@ -2626,9 +2626,9 @@ class AFFM(nn.Module):
         _x = torch.flatten(_x, 1)
         _x = self.fc(_x)
 
-        # [B, 2 * c, 1, 1]
-        _x = _x.unsqueeze(-1).unsqueeze(-1)
+        # [B, 2 * c]
         _x = self.act(self.bn(_x))
+        _x = _x.unsqueeze(-1).unsqueeze(-1)
 
         w1, w2 = torch.split(_x, int(self.c1 / 2), dim=1)
         out = x[0] * w1 + x[1] * w2
@@ -2640,7 +2640,7 @@ class EdgeFEBlock(nn.Module):
         super().__init__()
 
         self.edpic = EDPIC(c1)
-        self.conv = nn.Conv2d(c1, c2, k, s, padding=1)
+        self.conv = Conv(c1, c2, k, s, p=1)
         self.shapeconv = ShapeConv(c1, c2, k, s)
 
     def forward(self, x):
@@ -2648,6 +2648,7 @@ class EdgeFEBlock(nn.Module):
         x2 = self.shapeconv(x)
 
         return [x1, x2]
+
 
 class BiFPNAdd(nn.Module):
     """Weighted feature fusion node (fast normalized fusion from BiFPN paper)."""
@@ -2662,3 +2663,26 @@ class BiFPNAdd(nn.Module):
         w = F.relu(self.weights.clone())
         w = w / (w.sum() + self.eps)
         return sum(w[i] * inputs[i] for i in range(len(inputs)))
+
+
+class WeightedConcatN(nn.Module):
+    def __init__(self, num_inputs, dimension=1):
+        super(WeightedConcatN, self).__init__()
+        self.d = dimension
+        self.num_inputs = num_inputs
+        self.w = nn.Parameter(
+            torch.ones(num_inputs, dtype=torch.float32), requires_grad=True
+        )
+        self.epsilon = 1e-4
+
+    def forward(self, x):
+        assert isinstance(x, (list, tuple)), "Input must be a list or tuple of tensors"
+        assert len(x) == self.num_inputs, (
+            f"Expected {self.num_inputs} inputs, got {len(x)}"
+        )
+
+        w = torch.exp(self.w)
+        weight = w / (torch.sum(w, dim=0) + self.epsilon)  # Normalize weights
+        # Fast normalized fusion
+        weighted = [weight[i] * x[i] for i in range(self.num_inputs)]  # Apply weights
+        return torch.cat(weighted, dim=self.d)
