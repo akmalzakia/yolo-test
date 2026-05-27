@@ -119,6 +119,10 @@ from .transformer import (
     TransformerLayer,
 )
 
+from .spconv import (
+    SPConvC2f
+)
+
 __all__ = (
     "AIFI",
     "C1",
@@ -213,4 +217,5 @@ __all__ = (
     "C2f_EMA",
     "WeightedConcatN",
     "BiFPNAdd",
+    "SPConvC2f"
 )

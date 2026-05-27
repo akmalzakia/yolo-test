@@ -84,6 +84,7 @@ from ultralytics.nn.modules import (
     CBAM,
     BiFPNAdd,
     WeightedConcatN,
+    SPConvC2f
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1805,6 +1806,7 @@ def parse_model(d, ch, verbose=True):
             ShapeConv,
             EFE,
             EdgeFEBlock,
+            SPConvC2f
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1825,6 +1827,7 @@ def parse_model(d, ch, verbose=True):
             C2fCIB,
             C2PSA,
             A2C2f,
+            SPConvC2f
         }
     )
     for i, (f, n, m, args) in enumerate(
