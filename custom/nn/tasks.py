@@ -84,7 +84,9 @@ from ultralytics.nn.modules import (
     CBAM,
     BiFPNAdd,
     WeightedConcatN,
-    SPConvC2f
+    SPConvC2f,
+    C2f_Unscaled,
+    DCNConvC2f,
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1806,7 +1808,9 @@ def parse_model(d, ch, verbose=True):
             ShapeConv,
             EFE,
             EdgeFEBlock,
-            SPConvC2f
+            SPConvC2f,
+            C2f_Unscaled,
+            DCNConvC2f
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1827,7 +1831,9 @@ def parse_model(d, ch, verbose=True):
             C2fCIB,
             C2PSA,
             A2C2f,
-            SPConvC2f
+            SPConvC2f,
+            C2f_Unscaled,
+            DCNConvC2f
         }
     )
     for i, (f, n, m, args) in enumerate(
@@ -1844,7 +1850,7 @@ def parse_model(d, ch, verbose=True):
             if isinstance(a, str):
                 with contextlib.suppress(ValueError):
                     args[j] = locals()[a] if a in locals() else ast.literal_eval(a)
-        if m is SPConvC2f:
+        if m is C2f_Unscaled:
             n = n_ = n
         else:
             n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain

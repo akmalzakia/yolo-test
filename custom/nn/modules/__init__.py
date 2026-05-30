@@ -67,7 +67,8 @@ from .block import (
     AFFM,
     EdgeFEBlock,
     DySample,
-    BiFPNAdd
+    BiFPNAdd,
+    C2f_Unscaled,
 )
 from .conv import (
     CBAM,
@@ -87,7 +88,7 @@ from .conv import (
     CircleConv,
     TriangleConv,
     EMA,
-    WeightedConcatN
+    WeightedConcatN,
 )
 from .head import (
     OBB,
@@ -119,9 +120,9 @@ from .transformer import (
     TransformerLayer,
 )
 
-from .spconv import (
-    SPConvC2f
-)
+from .spconv import SPConvC2f
+
+from .dcn import DCNConvC2f
 
 __all__ = (
     "AIFI",
@@ -217,5 +218,6 @@ __all__ = (
     "C2f_EMA",
     "WeightedConcatN",
     "BiFPNAdd",
-    "SPConvC2f"
+    "SPConvC2f",
+    "C2f_Unscaled",
 )
