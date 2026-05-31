@@ -1,6 +1,8 @@
 notebooks/runs/*
 notebooks/wandb/*
 notebooks/analysis/runs/*
+notebooks/analysis/results/*
+
 *.pt
 
 # Byte-compiled / optimized / DLL files

@@ -87,6 +87,9 @@ from ultralytics.nn.modules import (
     SPConvC2f,
     C2f_Unscaled,
     DCNConvC2f,
+    C2f_Faster_CGLU,
+    C2f_Faster,
+    SPPF_LSKA
 )
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, WINDOWS, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
@@ -1810,7 +1813,10 @@ def parse_model(d, ch, verbose=True):
             EdgeFEBlock,
             SPConvC2f,
             C2f_Unscaled,
-            DCNConvC2f
+            DCNConvC2f,
+            C2f_Faster_CGLU,
+            C2f_Faster,
+            SPPF_LSKA
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1833,7 +1839,9 @@ def parse_model(d, ch, verbose=True):
             A2C2f,
             SPConvC2f,
             C2f_Unscaled,
-            DCNConvC2f
+            DCNConvC2f,
+            C2f_Faster_CGLU,
+            C2f_Faster
         }
     )
     for i, (f, n, m, args) in enumerate(

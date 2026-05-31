@@ -69,6 +69,9 @@ from .block import (
     DySample,
     BiFPNAdd,
     C2f_Unscaled,
+    C2f_Faster_CGLU,
+    C2f_Faster,
+    SPPF_LSKA
 )
 from .conv import (
     CBAM,
@@ -220,4 +223,7 @@ __all__ = (
     "BiFPNAdd",
     "SPConvC2f",
     "C2f_Unscaled",
+    "C2f_Faster_CGLU",
+    "C2f_Faster",
+    "SPPF_LSKA"
 )
