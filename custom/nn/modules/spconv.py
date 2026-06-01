@@ -147,7 +147,7 @@ class SPConvC2f(nn.Module):
         kernel_size : spatial kernel for shape convs (default 3)
     """
  
-    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, kernel_size=3):
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, kernel_size=5):
         super().__init__()
         from ultralytics.nn.modules.conv import Conv
  
