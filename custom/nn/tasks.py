@@ -1974,7 +1974,8 @@ def parse_model(d, ch, verbose=True):
             if isinstance(a, str):
                 with contextlib.suppress(ValueError):
                     args[j] = locals()[a] if a in locals() else ast.literal_eval(a)
-        if m is C2f_Unscaled:
+        is_spconvc2f_single = m is SPConvC2f and len(args) >= 2 and args[2] == "Single"
+        if m is C2f_Unscaled or is_spconvc2f_single:
             n = n_ = n
         else:
             n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain

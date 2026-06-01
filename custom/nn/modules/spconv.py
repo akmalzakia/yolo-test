@@ -60,7 +60,14 @@ SEMANTIC_SHAPE_SEQUENCE = ["circle", "triangle", "octagon", "rectangle"]
 
 # endregion
 
-#region Bottlenecks
+
+# region Bottlenecks
+def _resolve_shapes(n):
+    return (
+        SEMANTIC_SHAPE_SEQUENCE + ["none"] * max(0, n - len(SEMANTIC_SHAPE_SEQUENCE))
+    )[:n]
+
+
 class ShapePriorBottleneck(nn.Module):
     """
     Bottleneck with ES-YOLO layer-based shape-prior freeze.
@@ -95,7 +102,9 @@ class ShapePriorBottleneck(nn.Module):
         out = self.cv2(self.cv1(x))
         return x + out if self.add else out
 
+
 NUM_SHAPES = len(SEMANTIC_SHAPE_SEQUENCE)
+
 
 def _make_grouped_shape_mask(c_out, k):
     """
@@ -125,6 +134,7 @@ def _make_grouped_shape_mask(c_out, k):
         rows.append(m.expand(count, 1, k, k))
 
     return torch.cat(rows, dim=0).clone()  # (c_out, 1, k, k)
+
 
 class MultiShapeBottleneck(nn.Module):
     """
@@ -157,6 +167,7 @@ class MultiShapeBottleneck(nn.Module):
     def forward(self, x):
         out = self.cv2(self.cv1(x))
         return x + out if self.add else out
+
 
 class DualBranchBottleneck(nn.Module):
     """
@@ -205,28 +216,69 @@ class DualBranchBottleneck(nn.Module):
         out = self.cv2(fused)
         return x + out if self.add else out
 
+
 # endregion
 
 
 class SPConvC2f(nn.Module):
-    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5,
-                 kernel_size=3, free_ratio=0.5):
+    def __init__(
+        self,
+        c1,
+        c2,
+        n=1,
+        shortcut=False,
+        bottleneck="Multi",
+        kernel_size=5,
+        free_ratio=0.5,
+        g=1,
+        e=0.5,
+    ):
         super().__init__()
 
-        self.c   = int(c2 * e)
+        self.c = int(c2 * e)
         self.cv1 = Conv(c1, 2 * self.c, 1, 1)
         self.cv2 = Conv((2 + n) * self.c, c2, 1)
- 
-        self.m = nn.ModuleList(
-            DualBranchBottleneck(
-                self.c, self.c,
-                shortcut=shortcut, g=g,
-                k=(kernel_size, kernel_size), e=1.0,
-                free_ratio=free_ratio,
+
+        if bottleneck == "Multi":
+            self.m = nn.ModuleList(
+                MultiShapeBottleneck(
+                    self.c,
+                    self.c,
+                    shortcut=shortcut,
+                    g=g,
+                    k=(kernel_size, kernel_size),
+                    e=1.0,
+                )
+                for _ in range(n)
             )
-            for _ in range(n)
-        )
- 
+        elif bottleneck == "Dual":
+            self.m = nn.ModuleList(
+                DualBranchBottleneck(
+                    self.c,
+                    self.c,
+                    shortcut=shortcut,
+                    g=g,
+                    k=(kernel_size, kernel_size),
+                    e=1.0,
+                    free_ratio=free_ratio,
+                )
+                for _ in range(n)
+            )
+        else:
+            shapes = _resolve_shapes(n)
+            self.m = nn.ModuleList(
+                ShapePriorBottleneck(
+                    self.c,
+                    self.c,
+                    shortcut=shortcut,
+                    g=g,
+                    k=(kernel_size, kernel_size),
+                    e=1.0,
+                    shape=s,
+                )
+                for s in shapes
+            )
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Forward pass through C2f layer."""
         y = list(self.cv1(x).chunk(2, 1))
@@ -239,4 +291,3 @@ class SPConvC2f(nn.Module):
         y = [y[0], y[1]]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
-
