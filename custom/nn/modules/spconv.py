@@ -291,3 +291,28 @@ class SPConvC2f(nn.Module):
         y = [y[0], y[1]]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
+
+class SPConvFreezeCallback:
+    def __init__(self, pytorch_model: nn.Module):
+        self.model = pytorch_model
+ 
+    def __call__(self, trainer):
+        n = 0
+        for m in self.model.modules():
+            if isinstance(m, DualBranchBottleneck):
+                m.cv1_shape.conv.weight.requires_grad_(False)
+                n += 1
+            elif isinstance(m, (MultiShapeBottleneck, ShapePriorBottleneck)):
+                m.cv1.conv.weight.requires_grad_(False)
+                n += 1
+        if n:
+            import logging
+            logging.getLogger("ultralytics").info(
+                f"[SP-C2f] Re-applied cv1 freeze to {n} shape-prior layers ✅"
+            )
+ 
+    @staticmethod
+    def attach(yolo_wrapper) -> "SPConvFreezeCallback":
+        cb = SPConvFreezeCallback(yolo_wrapper.model)
+        yolo_wrapper.add_callback("on_train_start", cb)
+        return cb
