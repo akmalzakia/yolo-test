@@ -59,6 +59,19 @@ from .block import (
     ResNetLayer,
     SCDown,
     TorchVision,
+    AFFM,
+    C2f_EMA,
+    EdgeFEBlock,
+    DySample,
+    BiFPNAdd,
+    C2f_Unscaled,
+    C2f_Faster_CGLU,
+    C2f_Faster,
+    SPPF_LSKA,
+    SimAM,
+    ShapeConv,
+    EFE,
+    EDPIC,
 )
 from .conv import (
     CBAM,
@@ -75,6 +88,10 @@ from .conv import (
     LightConv,
     RepConv,
     SpatialAttention,
+    CircleConv,
+    TriangleConv,
+    EMA,
+    WeightedConcatN
 )
 from .head import (
     OBB,
@@ -94,6 +111,7 @@ from .head import (
     YOLOESegment26,
     v10Detect,
 )
+
 from .transformer import (
     AIFI,
     MLP,
@@ -105,26 +123,6 @@ from .transformer import (
     TransformerBlock,
     TransformerEncoderLayer,
     TransformerLayer,
-)
-
-from .custom import (
-    AFFM,
-    C2f_EMA,
-    EdgeFEBlock,
-    DySample,
-    BiFPNAdd,
-    C2f_Unscaled,
-    C2f_Faster_CGLU,
-    C2f_Faster,
-    SPPF_LSKA,
-    SimAM,
-    ShapeConv,
-    EFE,
-    EDPIC,
-    CircleConv,
-    TriangleConv,
-    EMA,
-    WeightedConcatN,
 )
 
 from .spconv import SPConvC2f
