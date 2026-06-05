@@ -72,7 +72,7 @@ from .block import (
     ShapeConv,
     EFE,
     EDPIC,
-    C2f_WTConv
+    C2f_WTConv,
 )
 from .conv import (
     CBAM,
@@ -92,7 +92,7 @@ from .conv import (
     CircleConv,
     TriangleConv,
     EMA,
-    WeightedConcatN
+    WeightedConcatN,
 )
 from .head import (
     OBB,
