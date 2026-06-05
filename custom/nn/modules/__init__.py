@@ -72,6 +72,7 @@ from .block import (
     ShapeConv,
     EFE,
     EDPIC,
+    C2f_WTConv
 )
 from .conv import (
     CBAM,
@@ -230,4 +231,5 @@ __all__ = (
     "WeightedConcatN",
     "SPConvC2f",
     "DCNConvC2f",
+    "C2f_WTConv"
 )

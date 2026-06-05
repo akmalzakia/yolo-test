@@ -20,6 +20,7 @@ from .conv import (
     TriangleConv,
     autopad,
 )
+from .wtconv import WTConv2d
 from .transformer import TransformerBlock
 
 __all__ = (
@@ -71,7 +72,7 @@ __all__ = (
     "DySample",
     "C2f_EMA",
     "BiFPNAdd",
-    "C2f_Unscaled"
+    "C2f_Unscaled",
 )
 
 
@@ -371,6 +372,7 @@ class C2f(nn.Module):
         y = [y[0], y[1]]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
+
 
 class C3(nn.Module):
     """CSP Bottleneck with 3 convolutions."""
@@ -2337,17 +2339,16 @@ class RealNVP(nn.Module):
         return self.prior.log_prob(z) + log_det
 
 
-
 class SimAM(torch.nn.Module):
-    def __init__(self, channels = None, e_lambda = 1e-4):
+    def __init__(self, channels=None, e_lambda=1e-4):
         super(SimAM, self).__init__()
 
         self.activaton = nn.Sigmoid()
         self.e_lambda = e_lambda
 
     def __repr__(self):
-        s = self.__class__.__name__ + '('
-        s += ('lambda=%f)' % self.e_lambda)
+        s = self.__class__.__name__ + "("
+        s += "lambda=%f)" % self.e_lambda
         return s
 
     @staticmethod
@@ -2357,11 +2358,18 @@ class SimAM(torch.nn.Module):
     def forward(self, x):
 
         b, c, h, w = x.size()
-        
+
         n = w * h - 1
 
-        x_minus_mu_square = (x - x.mean(dim=[2,3], keepdim=True)).pow(2)
-        y = x_minus_mu_square / (4 * (x_minus_mu_square.sum(dim=[2,3], keepdim=True) / n + self.e_lambda)) + 0.5
+        x_minus_mu_square = (x - x.mean(dim=[2, 3], keepdim=True)).pow(2)
+        y = (
+            x_minus_mu_square
+            / (
+                4
+                * (x_minus_mu_square.sum(dim=[2, 3], keepdim=True) / n + self.e_lambda)
+            )
+            + 0.5
+        )
 
         return x * self.activaton(y)
 
@@ -2637,9 +2645,12 @@ class WeightedConcatN(nn.Module):
         return torch.cat(weighted, dim=self.d)
 
 
-#---------------------------- CSW -----------------------#
+# ---------------------------- CSW -----------------------#
 
-def drop_path(x, drop_prob: float = 0., training: bool = False, scale_by_keep: bool = True):
+
+def drop_path(
+    x, drop_prob: float = 0.0, training: bool = False, scale_by_keep: bool = True
+):
     """Drop paths (Stochastic Depth) per sample (when applied in main path of residual blocks).
 
     This is the same as the DropConnect impl I created for EfficientNet, etc networks, however,
@@ -2649,10 +2660,12 @@ def drop_path(x, drop_prob: float = 0., training: bool = False, scale_by_keep: b
     'survival rate' as the argument.
 
     """
-    if drop_prob == 0. or not training:
+    if drop_prob == 0.0 or not training:
         return x
     keep_prob = 1 - drop_prob
-    shape = (x.shape[0],) + (1,) * (x.ndim - 1)  # work with diff dim tensors, not just 2D ConvNets
+    shape = (x.shape[0],) + (1,) * (
+        x.ndim - 1
+    )  # work with diff dim tensors, not just 2D ConvNets
     random_tensor = x.new_empty(shape).bernoulli_(keep_prob)
     if keep_prob > 0.0 and scale_by_keep:
         random_tensor.div_(keep_prob)
@@ -2660,9 +2673,9 @@ def drop_path(x, drop_prob: float = 0., training: bool = False, scale_by_keep: b
 
 
 class DropPath(nn.Module):
-    """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks).
-    """
-    def __init__(self, drop_prob: float = 0., scale_by_keep: bool = True):
+    """Drop paths (Stochastic Depth) per sample  (when applied in main path of residual blocks)."""
+
+    def __init__(self, drop_prob: float = 0.0, scale_by_keep: bool = True):
         super().__init__()
         self.drop_prob = drop_prob
         self.scale_by_keep = scale_by_keep
@@ -2671,28 +2684,31 @@ class DropPath(nn.Module):
         return drop_path(x, self.drop_prob, self.training, self.scale_by_keep)
 
     def extra_repr(self):
-        return f'drop_prob={round(self.drop_prob,3):0.3f}'
-    
+        return f"drop_prob={round(self.drop_prob, 3):0.3f}"
+
 
 class Partial_conv3(nn.Module):
-
     def __init__(self, dim, n_div, forward):
         super().__init__()
         self.dim_conv3 = dim // n_div
         self.dim_untouched = dim - self.dim_conv3
-        self.partial_conv3 = nn.Conv2d(self.dim_conv3, self.dim_conv3, 3, 1, 1, bias=False)
+        self.partial_conv3 = nn.Conv2d(
+            self.dim_conv3, self.dim_conv3, 3, 1, 1, bias=False
+        )
 
-        if forward == 'slicing':
+        if forward == "slicing":
             self.forward = self.forward_slicing
-        elif forward == 'split_cat':
+        elif forward == "split_cat":
             self.forward = self.forward_split_cat
         else:
             raise NotImplementedError
 
     def forward_slicing(self, x: torch.Tensor) -> torch.Tensor:
         # only for inference
-        x = x.clone()   # !!! Keep the original input intact for the residual connection later
-        x[:, :self.dim_conv3, :, :] = self.partial_conv3(x[:, :self.dim_conv3, :, :])
+        x = (
+            x.clone()
+        )  # !!! Keep the original input intact for the residual connection later
+        x[:, : self.dim_conv3, :, :] = self.partial_conv3(x[:, : self.dim_conv3, :, :])
 
         return x
 
@@ -2703,44 +2719,44 @@ class Partial_conv3(nn.Module):
         x = torch.cat((x1, x2), 1)
 
         return x
-    
+
+
 class Faster_Block(nn.Module):
-    def __init__(self,
-                 inc,
-                 dim,
-                 n_div=4,
-                 mlp_ratio=2,
-                 drop_path=0.1,
-                 layer_scale_init_value=0.0,
-                 pconv_fw_type='split_cat'
-                 ):
+    def __init__(
+        self,
+        inc,
+        dim,
+        n_div=4,
+        mlp_ratio=2,
+        drop_path=0.1,
+        layer_scale_init_value=0.0,
+        pconv_fw_type="split_cat",
+    ):
         super().__init__()
         self.dim = dim
         self.mlp_ratio = mlp_ratio
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.n_div = n_div
 
         mlp_hidden_dim = int(dim * mlp_ratio)
 
         mlp_layer = [
             Conv(dim, mlp_hidden_dim, 1),
-            nn.Conv2d(mlp_hidden_dim, dim, 1, bias=False)
+            nn.Conv2d(mlp_hidden_dim, dim, 1, bias=False),
         ]
 
         self.mlp = nn.Sequential(*mlp_layer)
 
-        self.spatial_mixing = Partial_conv3(
-            dim,
-            n_div,
-            pconv_fw_type
-        )
+        self.spatial_mixing = Partial_conv3(dim, n_div, pconv_fw_type)
 
         self.adjust_channel = None
         if inc != dim:
             self.adjust_channel = Conv(inc, dim, 1)
 
         if layer_scale_init_value > 0:
-            self.layer_scale = nn.Parameter(layer_scale_init_value * torch.ones((dim)), requires_grad=True)
+            self.layer_scale = nn.Parameter(
+                layer_scale_init_value * torch.ones((dim)), requires_grad=True
+            )
             self.forward = self.forward_layer_scale
         else:
             self.forward = self.forward
@@ -2757,23 +2773,42 @@ class Faster_Block(nn.Module):
         shortcut = x
         x = self.spatial_mixing(x)
         x = shortcut + self.drop_path(
-            self.layer_scale.unsqueeze(-1).unsqueeze(-1) * self.mlp(x))
+            self.layer_scale.unsqueeze(-1).unsqueeze(-1) * self.mlp(x)
+        )
         return x
+
+
 class C2f_Faster(C2f):
     def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
         super().__init__(c1, c2, n, shortcut, g, e)
         self.m = nn.ModuleList(Faster_Block(self.c, self.c) for _ in range(n))
+
+
 class ConvolutionalGLU(nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.) -> None:
+    def __init__(
+        self,
+        in_features,
+        hidden_features=None,
+        out_features=None,
+        act_layer=nn.GELU,
+        drop=0.0,
+    ) -> None:
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         hidden_features = int(2 * hidden_features / 3)
         self.fc1 = nn.Conv2d(in_features, hidden_features * 2, 1)
         self.dwconv = nn.Sequential(
-            nn.Conv2d(hidden_features, hidden_features, kernel_size=3, stride=1, padding=1, bias=True,
-                      groups=hidden_features),
-            act_layer()
+            nn.Conv2d(
+                hidden_features,
+                hidden_features,
+                kernel_size=3,
+                stride=1,
+                padding=1,
+                bias=True,
+                groups=hidden_features,
+            ),
+            act_layer(),
         )
         self.fc2 = nn.Conv2d(hidden_features, out_features, 1)
         self.drop = nn.Dropout(drop)
@@ -2794,36 +2829,37 @@ class ConvolutionalGLU(nn.Module):
         x = self.fc2(x)
         x = self.drop(x)
         return x_shortcut + x
+
+
 class Faster_Block_CGLU(nn.Module):
-    def __init__(self,
-                 inc,
-                 dim,
-                 n_div=4,
-                 mlp_ratio=2,
-                 drop_path=0.1,
-                 layer_scale_init_value=0.0,
-                 pconv_fw_type='split_cat'
-                 ):
+    def __init__(
+        self,
+        inc,
+        dim,
+        n_div=4,
+        mlp_ratio=2,
+        drop_path=0.1,
+        layer_scale_init_value=0.0,
+        pconv_fw_type="split_cat",
+    ):
         super().__init__()
         self.dim = dim
         self.mlp_ratio = mlp_ratio
-        self.drop_path = DropPath(drop_path) if drop_path > 0. else nn.Identity()
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         self.n_div = n_div
 
         self.mlp = ConvolutionalGLU(dim)
 
-        self.spatial_mixing = Partial_conv3(
-            dim,
-            n_div,
-            pconv_fw_type
-        )
+        self.spatial_mixing = Partial_conv3(dim, n_div, pconv_fw_type)
 
         self.adjust_channel = None
         if inc != dim:
             self.adjust_channel = Conv(inc, dim, 1)
 
         if layer_scale_init_value > 0:
-            self.layer_scale = nn.Parameter(layer_scale_init_value * torch.ones((dim)), requires_grad=True)
+            self.layer_scale = nn.Parameter(
+                layer_scale_init_value * torch.ones((dim)), requires_grad=True
+            )
             self.forward = self.forward_layer_scale
         else:
             self.forward = self.forward
@@ -2840,8 +2876,11 @@ class Faster_Block_CGLU(nn.Module):
         shortcut = x
         x = self.spatial_mixing(x)
         x = shortcut + self.drop_path(
-            self.layer_scale.unsqueeze(-1).unsqueeze(-1) * self.mlp(x))
+            self.layer_scale.unsqueeze(-1).unsqueeze(-1) * self.mlp(x)
+        )
         return x
+
+
 class C2f_Faster_CGLU(C2f):
     def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
         super().__init__(c1, c2, n, shortcut, g, e)
@@ -2857,35 +2896,215 @@ class LSKA(nn.Module):
         self.k_size = k_size
 
         if k_size == 7:
-            self.conv0h = nn.Conv2d(dim, dim, kernel_size=(1, 3), stride=(1,1), padding=(0,(3-1)//2), groups=dim)
-            self.conv0v = nn.Conv2d(dim, dim, kernel_size=(3, 1), stride=(1,1), padding=((3-1)//2,0), groups=dim)
-            self.conv_spatial_h = nn.Conv2d(dim, dim, kernel_size=(1, 3), stride=(1,1), padding=(0,2), groups=dim, dilation=2)
-            self.conv_spatial_v = nn.Conv2d(dim, dim, kernel_size=(3, 1), stride=(1,1), padding=(2,0), groups=dim, dilation=2)
+            self.conv0h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 3),
+                stride=(1, 1),
+                padding=(0, (3 - 1) // 2),
+                groups=dim,
+            )
+            self.conv0v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(3, 1),
+                stride=(1, 1),
+                padding=((3 - 1) // 2, 0),
+                groups=dim,
+            )
+            self.conv_spatial_h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 3),
+                stride=(1, 1),
+                padding=(0, 2),
+                groups=dim,
+                dilation=2,
+            )
+            self.conv_spatial_v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(3, 1),
+                stride=(1, 1),
+                padding=(2, 0),
+                groups=dim,
+                dilation=2,
+            )
         elif k_size == 11:
-            self.conv0h = nn.Conv2d(dim, dim, kernel_size=(1, 3), stride=(1,1), padding=(0,(3-1)//2), groups=dim)
-            self.conv0v = nn.Conv2d(dim, dim, kernel_size=(3, 1), stride=(1,1), padding=((3-1)//2,0), groups=dim)
-            self.conv_spatial_h = nn.Conv2d(dim, dim, kernel_size=(1, 5), stride=(1,1), padding=(0,4), groups=dim, dilation=2)
-            self.conv_spatial_v = nn.Conv2d(dim, dim, kernel_size=(5, 1), stride=(1,1), padding=(4,0), groups=dim, dilation=2)
+            self.conv0h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 3),
+                stride=(1, 1),
+                padding=(0, (3 - 1) // 2),
+                groups=dim,
+            )
+            self.conv0v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(3, 1),
+                stride=(1, 1),
+                padding=((3 - 1) // 2, 0),
+                groups=dim,
+            )
+            self.conv_spatial_h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 5),
+                stride=(1, 1),
+                padding=(0, 4),
+                groups=dim,
+                dilation=2,
+            )
+            self.conv_spatial_v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(5, 1),
+                stride=(1, 1),
+                padding=(4, 0),
+                groups=dim,
+                dilation=2,
+            )
         elif k_size == 23:
-            self.conv0h = nn.Conv2d(dim, dim, kernel_size=(1, 5), stride=(1,1), padding=(0,(5-1)//2), groups=dim)
-            self.conv0v = nn.Conv2d(dim, dim, kernel_size=(5, 1), stride=(1,1), padding=((5-1)//2,0), groups=dim)
-            self.conv_spatial_h = nn.Conv2d(dim, dim, kernel_size=(1, 7), stride=(1,1), padding=(0,9), groups=dim, dilation=3)
-            self.conv_spatial_v = nn.Conv2d(dim, dim, kernel_size=(7, 1), stride=(1,1), padding=(9,0), groups=dim, dilation=3)
+            self.conv0h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 5),
+                stride=(1, 1),
+                padding=(0, (5 - 1) // 2),
+                groups=dim,
+            )
+            self.conv0v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(5, 1),
+                stride=(1, 1),
+                padding=((5 - 1) // 2, 0),
+                groups=dim,
+            )
+            self.conv_spatial_h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 7),
+                stride=(1, 1),
+                padding=(0, 9),
+                groups=dim,
+                dilation=3,
+            )
+            self.conv_spatial_v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(7, 1),
+                stride=(1, 1),
+                padding=(9, 0),
+                groups=dim,
+                dilation=3,
+            )
         elif k_size == 35:
-            self.conv0h = nn.Conv2d(dim, dim, kernel_size=(1, 5), stride=(1,1), padding=(0,(5-1)//2), groups=dim)
-            self.conv0v = nn.Conv2d(dim, dim, kernel_size=(5, 1), stride=(1,1), padding=((5-1)//2,0), groups=dim)
-            self.conv_spatial_h = nn.Conv2d(dim, dim, kernel_size=(1, 11), stride=(1,1), padding=(0,15), groups=dim, dilation=3)
-            self.conv_spatial_v = nn.Conv2d(dim, dim, kernel_size=(11, 1), stride=(1,1), padding=(15,0), groups=dim, dilation=3)
+            self.conv0h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 5),
+                stride=(1, 1),
+                padding=(0, (5 - 1) // 2),
+                groups=dim,
+            )
+            self.conv0v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(5, 1),
+                stride=(1, 1),
+                padding=((5 - 1) // 2, 0),
+                groups=dim,
+            )
+            self.conv_spatial_h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 11),
+                stride=(1, 1),
+                padding=(0, 15),
+                groups=dim,
+                dilation=3,
+            )
+            self.conv_spatial_v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(11, 1),
+                stride=(1, 1),
+                padding=(15, 0),
+                groups=dim,
+                dilation=3,
+            )
         elif k_size == 41:
-            self.conv0h = nn.Conv2d(dim, dim, kernel_size=(1, 5), stride=(1,1), padding=(0,(5-1)//2), groups=dim)
-            self.conv0v = nn.Conv2d(dim, dim, kernel_size=(5, 1), stride=(1,1), padding=((5-1)//2,0), groups=dim)
-            self.conv_spatial_h = nn.Conv2d(dim, dim, kernel_size=(1, 13), stride=(1,1), padding=(0,18), groups=dim, dilation=3)
-            self.conv_spatial_v = nn.Conv2d(dim, dim, kernel_size=(13, 1), stride=(1,1), padding=(18,0), groups=dim, dilation=3)
+            self.conv0h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 5),
+                stride=(1, 1),
+                padding=(0, (5 - 1) // 2),
+                groups=dim,
+            )
+            self.conv0v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(5, 1),
+                stride=(1, 1),
+                padding=((5 - 1) // 2, 0),
+                groups=dim,
+            )
+            self.conv_spatial_h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 13),
+                stride=(1, 1),
+                padding=(0, 18),
+                groups=dim,
+                dilation=3,
+            )
+            self.conv_spatial_v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(13, 1),
+                stride=(1, 1),
+                padding=(18, 0),
+                groups=dim,
+                dilation=3,
+            )
         elif k_size == 53:
-            self.conv0h = nn.Conv2d(dim, dim, kernel_size=(1, 5), stride=(1,1), padding=(0,(5-1)//2), groups=dim)
-            self.conv0v = nn.Conv2d(dim, dim, kernel_size=(5, 1), stride=(1,1), padding=((5-1)//2,0), groups=dim)
-            self.conv_spatial_h = nn.Conv2d(dim, dim, kernel_size=(1, 17), stride=(1,1), padding=(0,24), groups=dim, dilation=3)
-            self.conv_spatial_v = nn.Conv2d(dim, dim, kernel_size=(17, 1), stride=(1,1), padding=(24,0), groups=dim, dilation=3)
+            self.conv0h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 5),
+                stride=(1, 1),
+                padding=(0, (5 - 1) // 2),
+                groups=dim,
+            )
+            self.conv0v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(5, 1),
+                stride=(1, 1),
+                padding=((5 - 1) // 2, 0),
+                groups=dim,
+            )
+            self.conv_spatial_h = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(1, 17),
+                stride=(1, 1),
+                padding=(0, 24),
+                groups=dim,
+                dilation=3,
+            )
+            self.conv_spatial_v = nn.Conv2d(
+                dim,
+                dim,
+                kernel_size=(17, 1),
+                stride=(1, 1),
+                padding=(24, 0),
+                groups=dim,
+                dilation=3,
+            )
 
         self.conv1 = nn.Conv2d(dim, dim, 1)
 
@@ -2897,6 +3116,8 @@ class LSKA(nn.Module):
         attn = self.conv_spatial_v(attn)
         attn = self.conv1(attn)
         return u * attn
+
+
 class SPPF_LSKA(nn.Module):
     """Spatial Pyramid Pooling - Fast (SPPF) layer for YOLOv5 by Glenn Jocher."""
 
@@ -2914,7 +3135,8 @@ class SPPF_LSKA(nn.Module):
         y1 = self.m(x)
         y2 = self.m(y1)
         return self.cv2(self.lska(torch.cat((x, y1, y2, self.m(y2)), 1)))
-    
+
+
 class C2f_Unscaled(nn.Module):
     """Faster Implementation of CSP Bottleneck with 2 convolutions."""
 
@@ -3006,6 +3228,51 @@ class C2f_EMA(nn.Module):
         """Forward pass using split() instead of chunk()."""
         y1, y2 = self.cv1(x).split((self.c, self.c), 1)
         y2 = self.ema(y2)
+        y = [y1, y2]
+        y.extend(m(y[-1]) for m in self.m)
+        return self.cv2(torch.cat(y, 1))
+
+
+class C2f_WTConv(nn.Module):
+    """Faster Implementation of CSP Bottleneck with 2 convolutions + EMA."""
+
+    def __init__(
+        self, c1, c2, n=1, shortcut=False, g=1, e=0.5, wt_levels=1, wt_kernel=5
+    ):
+        """Initialize a CSP bottleneck with 2 convolutions.
+
+        Args:
+            c1 (int): Input channels.
+            c2 (int): Output channels.
+            n (int): Number of Bottleneck blocks.
+            shortcut (bool): Whether to use shortcut connections.
+            g (int): Groups for convolutions.
+            e (float): Expansion ratio.
+        """
+        super().__init__()
+        self.c = int(c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+        self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
+        self.wtc = WTConv2d(self.c, self.c, kernel_size=wt_kernel, wt_levels=wt_levels)
+        self.m = nn.ModuleList(
+            Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0)
+            for _ in range(n)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass through C2f layer."""
+        y1, y2 = self.cv1(x).chunk(2, 1)
+        y2 = self.wtc(y2)
+
+        y = [y1, y2]
+
+        y.extend(m(y[-1]) for m in self.m)
+        return self.cv2(torch.cat(y, 1))
+
+    def forward_split(self, x: torch.Tensor) -> torch.Tensor:
+        """Forward pass using split() instead of chunk()."""
+        y1, y2 = self.cv1(x).split((self.c, self.c), 1)
+        y2 = self.wtc(y2)
         y = [y1, y2]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
