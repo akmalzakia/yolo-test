@@ -91,7 +91,8 @@ from ultralytics.nn.modules import (
     C2f_Faster_CGLU,
     C2f_Faster,
     SPPF_LSKA,
-    C2f_WTConv
+    C2f_WTConv,
+    C2fDS
 )
 from ultralytics.utils import (
     DEFAULT_CFG_DICT,
@@ -1934,7 +1935,8 @@ def parse_model(d, ch, verbose=True):
             C2f_Faster_CGLU,
             C2f_Faster,
             SPPF_LSKA,
-            C2f_WTConv
+            C2f_WTConv,
+            C2fDS
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1960,7 +1962,8 @@ def parse_model(d, ch, verbose=True):
             DCNConvC2f,
             C2f_Faster_CGLU,
             C2f_Faster,
-            C2f_WTConv
+            C2f_WTConv,
+            C2fDS
         }
     )
     for i, (f, n, m, args) in enumerate(

@@ -72,7 +72,8 @@ from .block import (
     ShapeConv,
     EFE,
     EDPIC,
-    C2f_WTConv
+    C2f_WTConv,
+    C2fDS
 )
 from .conv import (
     CBAM,
@@ -127,7 +128,6 @@ from .transformer import (
 )
 
 from .spconv import SPConvC2f
-
 from .dcn import DCNConvC2f
 
 __all__ = (
@@ -231,5 +231,6 @@ __all__ = (
     "WeightedConcatN",
     "SPConvC2f",
     "DCNConvC2f",
-    "C2f_WTConv"
+    "C2f_WTConv",
+    "C2fDS"
 )
