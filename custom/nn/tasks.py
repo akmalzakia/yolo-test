@@ -92,7 +92,8 @@ from ultralytics.nn.modules import (
     C2f_Faster,
     SPPF_LSKA,
     C2f_WTConv,
-    C2fDS
+    C2fDS,
+    EMA
 )
 from ultralytics.utils import (
     DEFAULT_CFG_DICT,
@@ -1936,7 +1937,8 @@ def parse_model(d, ch, verbose=True):
             C2f_Faster,
             SPPF_LSKA,
             C2f_WTConv,
-            C2fDS
+            C2fDS,
+            EMA
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
