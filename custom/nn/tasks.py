@@ -93,6 +93,7 @@ from ultralytics.nn.modules import (
     SPPF_LSKA,
     SPPCSPC,
     C2f_WTConv,
+    C2fDS,
     EMA
 )
 from ultralytics.utils import (
@@ -1938,6 +1939,7 @@ def parse_model(d, ch, verbose=True):
             SPPF_LSKA,
             SPPCSPC,
             C2f_WTConv,
+            C2fDS,
             EMA
         }
     )
@@ -1964,7 +1966,8 @@ def parse_model(d, ch, verbose=True):
             DCNConvC2f,
             C2f_Faster_CGLU,
             C2f_Faster,
-            C2f_WTConv
+            C2f_WTConv,
+            C2fDS
         }
     )
     for i, (f, n, m, args) in enumerate(

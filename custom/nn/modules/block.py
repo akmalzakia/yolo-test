@@ -21,6 +21,7 @@ from .conv import (
     autopad,
 )
 from .wtconv import WTConv2d
+from .dsconv import DSConv
 from .transformer import TransformerBlock
 
 __all__ = (
@@ -3276,3 +3277,93 @@ class C2f_WTConv(nn.Module):
         y = [y1, y2]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
+class DSBottleneck(nn.Module):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        shortcut: bool = True,
+        kernel_size: int = 7,
+        extend_scope: float = 1.0,
+    ):
+        super().__init__()
+        self.cv1 = Conv(c1, c2, 1, 1)
+        self.cv2 = DSConv(
+            c2,
+            c2,
+            kernel_size=kernel_size,
+            extend_scope=extend_scope,
+            morph=0,
+            if_offset=True,
+        )
+        self.add = shortcut and c1 == c2
+
+    def forward(self, x):
+        return x + self.cv2(self.cv1(x)) if self.add else self.cv2(self.cv1(x))
+
+
+class DualDSBottleneck(nn.Module):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        shortcut: bool = True,
+        kernel_size: int = 7,
+        extend_scope: float = 1.0,
+    ):
+        super().__init__()
+        assert c2 % 2 == 0, "c2 must be even for DualDSBottleneck"
+        self.cv1 = Conv(c1, c2, 1, 1)
+        self.ds_h = DSConv(
+            c2,
+            c2 // 2,
+            kernel_size=kernel_size,
+            extend_scope=extend_scope,
+            morph=0,
+            if_offset=True,
+        )
+        self.ds_v = DSConv(
+            c2,
+            c2 // 2,
+            kernel_size=kernel_size,
+            extend_scope=extend_scope,
+            morph=1,
+            if_offset=True,
+        )
+        self.fuse = Conv(c2, c2, 1)
+        self.add = shortcut and c1 == c2
+
+    def forward(self, x):
+        feat = self.cv1(x)
+        out = self.fuse(torch.cat([self.ds_h(feat), self.ds_v(feat)], dim=1))
+        return x + out if self.add else out
+
+
+class C2fDS(C2f):
+    def __init__(
+        self,
+        c1: int,
+        c2: int,
+        n: int = 1,
+        shortcut: bool = False,
+        dual: bool = False,
+        g: int = 1,
+        e: float = 0.5,
+        kernel_size: int = 9,
+        extend_scope: float = 1.0,
+    ):
+        super().__init__(c1, c2, n, shortcut, g, e)
+        assert self.c % 4 == 0, (
+            f"Hidden channels self.c={self.c} must be divisible by 4 for GroupNorm in DSConv"
+        )
+        bottleneck_cls = DualDSBottleneck if dual else DSBottleneck
+        self.m = nn.ModuleList(
+            bottleneck_cls(
+                self.c,
+                self.c,
+                shortcut,
+                kernel_size=kernel_size,
+                extend_scope=extend_scope,
+            )
+            for _ in range(n)
+        )
