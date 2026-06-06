@@ -93,6 +93,7 @@ from .conv import (
     TriangleConv,
     EMA,
     WeightedConcatN,
+    SPPCSPC
 )
 from .head import (
     OBB,
@@ -231,5 +232,6 @@ __all__ = (
     "WeightedConcatN",
     "SPConvC2f",
     "DCNConvC2f",
-    "C2f_WTConv"
+    "C2f_WTConv",
+    "SPPCSPC"
 )

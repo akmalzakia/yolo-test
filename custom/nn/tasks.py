@@ -91,6 +91,7 @@ from ultralytics.nn.modules import (
     C2f_Faster_CGLU,
     C2f_Faster,
     SPPF_LSKA,
+    SPPCSPC,
     C2f_WTConv,
     EMA
 )
@@ -1935,6 +1936,7 @@ def parse_model(d, ch, verbose=True):
             C2f_Faster_CGLU,
             C2f_Faster,
             SPPF_LSKA,
+            SPPCSPC,
             C2f_WTConv,
             EMA
         }
