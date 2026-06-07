@@ -3277,6 +3277,7 @@ class C2f_WTConv(nn.Module):
         y = [y1, y2]
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
+    
 class DSBottleneck(nn.Module):
     def __init__(
         self,
@@ -3285,6 +3286,7 @@ class DSBottleneck(nn.Module):
         shortcut: bool = True,
         kernel_size: int = 7,
         extend_scope: float = 1.0,
+        morph:int = 0
     ):
         super().__init__()
         self.cv1 = Conv(c1, c2, 1, 1)
@@ -3293,7 +3295,7 @@ class DSBottleneck(nn.Module):
             c2,
             kernel_size=kernel_size,
             extend_scope=extend_scope,
-            morph=0,
+            morph=morph,
             if_offset=True,
         )
         self.add = shortcut and c1 == c2
@@ -3310,6 +3312,7 @@ class DualDSBottleneck(nn.Module):
         shortcut: bool = True,
         kernel_size: int = 7,
         extend_scope: float = 1.0,
+        morph: int = 0
     ):
         super().__init__()
         assert c2 % 2 == 0, "c2 must be even for DualDSBottleneck"
@@ -3347,6 +3350,7 @@ class C2fDS(C2f):
         n: int = 1,
         shortcut: bool = False,
         dual: bool = False,
+        morph: int = 0,
         g: int = 1,
         e: float = 0.5,
         kernel_size: int = 9,
@@ -3364,6 +3368,7 @@ class C2fDS(C2f):
                 shortcut,
                 kernel_size=kernel_size,
                 extend_scope=extend_scope,
+                morph=morph
             )
             for _ in range(n)
         )
