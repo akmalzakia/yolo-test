@@ -74,6 +74,7 @@ from .block import (
     EDPIC,
     C2f_WTConv,
     C2fDS,
+    C2f_PIG
 )
 from .conv import (
     CBAM,
@@ -130,6 +131,7 @@ from .transformer import (
 
 from .spconv import SPConvC2f
 from .dcn import DCNConvC2f
+from .dslk import DSLK
 
 __all__ = (
     "AIFI",
@@ -234,5 +236,7 @@ __all__ = (
     "DCNConvC2f",
     "C2f_WTConv",
     "SPPCSPC",
-    "C2fDS"
+    "C2fDS",
+    "DSLK",
+    "C2f_PIG"
 )
