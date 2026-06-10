@@ -132,6 +132,7 @@ from .transformer import (
 from .spconv import SPConvC2f
 from .dcn import DCNConvC2f
 from .dslk import DSLK
+from .unireplk import C3_UniRepLKBlock
 
 __all__ = (
     "AIFI",
@@ -238,5 +239,6 @@ __all__ = (
     "SPPCSPC",
     "C2fDS",
     "DSLK",
-    "C2f_PIG"
+    "C2f_PIG",
+    "C3_UniRepLKBlock"
 )

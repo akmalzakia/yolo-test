@@ -96,7 +96,8 @@ from ultralytics.nn.modules import (
     C2fDS,
     EMA,
     DSLK,
-    C2f_PIG
+    C2f_PIG,
+    C3_UniRepLKBlock
 )
 from ultralytics.utils import (
     DEFAULT_CFG_DICT,
@@ -1944,7 +1945,8 @@ def parse_model(d, ch, verbose=True):
             C2fDS,
             EMA,
             DSLK,
-            C2f_PIG
+            C2f_PIG,
+            C3_UniRepLKBlock
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1973,7 +1975,8 @@ def parse_model(d, ch, verbose=True):
             C2f_WTConv,
             C2fDS,
             DSLK,
-            C2f_PIG
+            C2f_PIG,
+            C3_UniRepLKBlock
         }
     )
     for i, (f, n, m, args) in enumerate(
