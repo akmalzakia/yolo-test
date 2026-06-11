@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import os
 import warnings
 from collections import defaultdict
 from pathlib import Path
@@ -919,6 +920,11 @@ class Metric(SimpleClass):
         self.nc = 0
         self.image_metrics = {}
 
+        self.w = [0.0, 0.0, 0.0, 1.0]
+        if os.environ["FITNESS_W"]:
+            self.w = [float(x) for x in os.environ["FITNESS_W"].split(',')]
+        print(f"weights for [P, R, mAP@0.5, mAP@0.5:0.95], {self.w}")
+
     @property
     def ap50(self) -> np.ndarray | list:
         """Return the Average Precision (AP) at an IoU threshold of 0.5 for all classes.
@@ -1000,8 +1006,7 @@ class Metric(SimpleClass):
 
     def fitness(self) -> float:
         """Return model fitness as a weighted combination of metrics."""
-        w = [0.0, 0.0, 1.0, 0.0]  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
-        print(f"weights for [P, R, mAP@0.5, mAP@0.5:0.95], {w}")
+        w = self.w  # weights for [P, R, mAP@0.5, mAP@0.5:0.95]
         return float((np.nan_to_num(np.array(self.mean_results())) * w).sum())
 
     def update(self, results: tuple):
